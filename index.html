@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Galaxia Interactiva 💫</title>
+<title>Mi Galaxia Opalita 💫</title>
 <style>
   html,body{margin:0;height:100%;background:#000;overflow:hidden}
   #galaxy-canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -32,7 +32,7 @@
 <script>
 const CONFIG = {
   theme: 'opalita', 
-  songFile: 'opalite.mp3', // Asegúrate de que este archivo esté en la misma carpeta
+  songFile: 'opalite.mp3', 
   phrases: [
     'Cesiah Keren 💛','Mi amor 💛','Mi niña hermosa 😍','Mi cielo 🌌','Eres mi todo ✨',
     'Siempre tú ♾️','Gracias por esta oportunidad 🙏','Te ADORO 🥰','Me encantas 💫',
@@ -55,30 +55,40 @@ const playBtn=document.getElementById('playBtn');
 const pickBtn=document.getElementById('pickBtn');
 const pickFile=document.getElementById('pickFile');
 
-// 🚨 NUEVA LÓGICA: Inicia el audio al primer clic en cualquier parte de la página
+
 let hasStartedAudio = false;
 
-document.addEventListener('click', () => {
-  if (!hasStartedAudio && audio.paused) {
-    audio.play().then(() => {
-      // Éxito en la reproducción
-      hasStartedAudio = true;
-      playBtn.textContent = '⏸︎';
-      audio.loop = true; // Aseguramos que se repita
-    }).catch(error => {
-      // Falla al reproducir (navegador estricto)
-      console.log('Error al iniciar audio: ', error);
-      // Dejamos que el usuario use el botón de Play si es necesario
-    });
-  }
-});
+// Función que intenta reproducir el audio (para compatibilidad móvil/desktop)
+const tryPlayAudio = () => {
+  if (hasStartedAudio) return;
+
+  // Intenta reproducir el audio
+  audio.play().then(() => {
+    // Éxito en la reproducción
+    hasStartedAudio = true;
+    playBtn.textContent = '⏸︎';
+    audio.loop = true;
+
+    // Eliminar los listeners una vez que el audio inició
+    document.removeEventListener('click', tryPlayAudio);
+    document.removeEventListener('touchstart', tryPlayAudio);
+    
+  }).catch(error => {
+    // Falla: Deja que el usuario use el botón de Play en el HUD
+    console.log('Audio blocked on mobile, rely on HUD button.');
+  });
+};
+
+// Adjuntar el controlador de eventos tanto para clic (escritorio) como para toque (móvil)
+document.addEventListener('click', tryPlayAudio);
+document.addEventListener('touchstart', tryPlayAudio);
 
 
 playBtn.onclick=async()=>{
   if(audio.paused){
     await audio.play();
     playBtn.textContent='⏸︎';
-    hasStartedAudio = true;
+    hasStartedAudio = true; 
     audio.loop = true;
   }
   else{
@@ -130,7 +140,7 @@ let themeColor=0xade8f4; // Color Opalita (Celeste pálido/iridiscente)
 if(CONFIG.theme==='pink')themeColor=0xff66cc;
 if(CONFIG.theme==='red')themeColor=0xff4444;
 
-// ==== FRASES ORBITANDO ====
+// ==== FRASES ORBITANDO (Uniformemente distribuidas) ====
 const galaxy=new THREE.Group(); scene.add(galaxy);
 
 // FUNCIÓN para mezclar el array de frases
@@ -221,7 +231,7 @@ const speeds=new Float32Array(particleCount);
 // Velocidad lenta
 const baseSpeed=0.0003; 
 for(let i=0;i<particleCount;i++){
-  // Rango de partículas: 70 a 180.
+  // Rango de partículas: 70 a 180. (Se extiende más allá de las palabras)
   const r=70+Math.random()*110; 
   const a=Math.random()*Math.PI*2;
   const y=(Math.random()-0.5)*40;
@@ -305,7 +315,6 @@ function animate(){
   for(let i=0;i<particleCount;i++){
     const x=pos[i*3];
     const z=pos[i*3+2];
-    // La velocidad angular usa speeds[i] que se inicializó con baseSpeed
     const angle=Math.atan2(z,x)-speeds[i]; 
     const r=Math.sqrt(x*x+z*z);
     pos[i*3]=Math.cos(angle)*r;
@@ -328,7 +337,6 @@ function animate(){
   // partículas del núcleo
   const corePositions=innerParticles.geometry.attributes.position.array;
   for(let i=0;i<coreParticleCount;i++){
-    // También usa baseSpeed para su movimiento
     coreAngles[i]-=baseSpeed;
     const r=coreRadius[i];
     corePositions[i*3]=Math.cos(coreAngles[i])*r;
