@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaxia Interactiva 💫</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  #galaxy-canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hud{position:fixed;left:10px;right:10px;bottom:10px;display:flex;gap:8px;align-items:center;
+       background:rgba(20,15,35,.25);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:8px;
+       backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-family:sans-serif}
+  .hud button{padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff}
+  .hud input[type=file]{display:none}
+  .pill{position:fixed;top:10px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:999px;
+        background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font:12px system-ui}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+<canvas id="galaxy-canvas"></canvas>
+<div class="pill">Arrastra • Pinch/rueda • Doble toque: efecto</div>
+<div class="hud">
+  <button id="playBtn">▶︎</button>
+  <span style="font-size:12px;opacity:.9">Selecciona tu MP3</span>
+  <input type="file" id="pickFile" accept="audio/*">
+  <button id="pickBtn">Elegir canción</button>
+  <audio id="audio" preload="none"></audio>
+</div>
+
+<script>
+const CONFIG = {
+  theme: 'opalita', 
+  songFile: 'opalite.mp3', // Asegúrate de que este archivo esté en la misma carpeta
+  phrases: [
+    'Cesiah Keren 💛','Mi amor 💛','Mi niña hermosa 😍','Mi cielo 🌌','Eres mi todo ✨',
+    'Siempre tú ♾️','Gracias por esta oportunidad 🙏','Te ADORO 🥰','Me encantas 💫',
+    'Amo todo de ti ♥️','Amo tus ojitos hermosos 🥰','Mi pequeña 💛','Eres el amor de todas mis vidas ♥️','Mi esposa posa posa 💍',
+    'Eres la estrella más bonita que he visto 🌠','Mi vida 💖','Amo el brillo de tus ojitos ✨','Eres mi sueño hecho realidad 💛','Te quiero de aquí a la Luna mil veces 🌙',
+    'La mujer de mi vida 💛','Completamente enamorado de ti 💘','No te voy a fallar, pequeña ♥️','Quiero que seas tú 💖', 'Tus ojos son mi constelación 👁️✨',
+    'Solo tú iluminas mi órbita 💡💫','Somos caos y universo juntos 🌀♾️'
+  ],
+  highlightPhrases: [ 
+    'K + R 💛', 
+    'Por siempre JUNTOS ♾️',
+    'But now the sky Opalite 🌌' 
+  ]
+};
+
+// ==== AUDIO ====
+const audio=document.getElementById('audio');
+audio.src=CONFIG.songFile;
+const playBtn=document.getElementById('playBtn');
+const pickBtn=document.getElementById('pickBtn');
+const pickFile=document.getElementById('pickFile');
+
+// 🚨 NUEVA LÓGICA: Inicia el audio al primer clic en cualquier parte de la página
+let hasStartedAudio = false;
+
+document.addEventListener('click', () => {
+  if (!hasStartedAudio && audio.paused) {
+    audio.play().then(() => {
+      // Éxito en la reproducción
+      hasStartedAudio = true;
+      playBtn.textContent = '⏸︎';
+      audio.loop = true; // Aseguramos que se repita
+    }).catch(error => {
+      // Falla al reproducir (navegador estricto)
+      console.log('Error al iniciar audio: ', error);
+      // Dejamos que el usuario use el botón de Play si es necesario
+    });
+  }
+});
+
+
+playBtn.onclick=async()=>{
+  if(audio.paused){
+    await audio.play();
+    playBtn.textContent='⏸︎';
+    hasStartedAudio = true;
+    audio.loop = true;
+  }
+  else{
+    audio.pause();
+    playBtn.textContent='▶︎';
+  }
+};
+pickBtn.onclick=()=>pickFile.click();
+pickFile.onchange=()=>{
+  if(pickFile.files[0]){
+    const url=URL.createObjectURL(pickFile.files[0]);
+    audio.src=url; 
+    audio.play(); 
+    playBtn.textContent='⏸︎';
+    hasStartedAudio = true;
+    audio.loop = true;
+  }
+};
+
+// ==== THREE.JS ====
+const canvas=document.getElementById('galaxy-canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+renderer.setSize(window.innerWidth,window.innerHeight);
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,2000);
+camera.position.set(0,12,150);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
+
+// Fondo estrellado
+function makeStarTexture(){
+  const c=document.createElement('canvas'); c.width=c.height=1024;
+  const g=c.getContext('2d'); 
+  g.fillStyle='#000000'; // Negro Puro
+  g.fillRect(0,0,1024,1024);
+  for(let i=0;i<2400;i++){
+    g.fillStyle='rgba(255,255,255,'+(Math.random()*0.9)+')'; 
+    g.fillRect(Math.random()*1024,Math.random()*1024,1,1);
+  }
+  return new THREE.CanvasTexture(c);
+}
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(600,64,64),
+  new THREE.MeshBasicMaterial({map:makeStarTexture(),side:THREE.BackSide})));
+
+// Tema
+let themeColor=0xade8f4; // Color Opalita (Celeste pálido/iridiscente)
+if(CONFIG.theme==='pink')themeColor=0xff66cc;
+if(CONFIG.theme==='red')themeColor=0xff4444;
+
+// ==== FRASES ORBITANDO ====
+const galaxy=new THREE.Group(); scene.add(galaxy);
+
+// FUNCIÓN para mezclar el array de frases
+function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
+
+// 1. Crear el Pool de frases NORMALES (6 copias de cada una)
+let phrasePool=[];
+const NORMAL_REPS = 6;
+for(let i=0; i<NORMAL_REPS; i++){
+    phrasePool.push(...CONFIG.phrases);
+}
+
+// 2. Agregar las frases DESTACADAS (2 copias de cada una) 
+const HIGHLIGHT_REPS = 2; 
+for(let i=0; i<HIGHLIGHT_REPS; i++){
+    phrasePool.push(...CONFIG.highlightPhrases);
+}
+
+const totalSprites = phrasePool.length;
+
+// 3. Mezclamos todo el pool DE UNA SOLA VEZ antes de crear los sprites
+shuffle(phrasePool);
+
+for(let i=0;i<totalSprites;i++){
+  // Usamos el índice i para asignar el texto del pool y la posición angular
+  const text=phrasePool[i];
+
+  // aumentamos tamaño de lienzo para que no se recorten
+  const c=document.createElement('canvas');
+  c.width=1024; c.height=128;
+  const g=c.getContext('2d');
+  
+  let fontSize=38;
+  let glow=14;
+  
+  // Aplicamos el estilo de destacado
+  if(CONFIG.highlightPhrases.includes(text)){
+    fontSize=70; 
+    glow=40; 
+  }
+
+  g.font=`bold ${fontSize}px Arial`;
+  g.fillStyle='#fff';
+  // El color de la sombra/brillo de las frases usa el themeColor Opalita
+  g.shadowColor=`rgba(${(themeColor>>16)&255},${(themeColor>>8)&255},${themeColor&255},1)`;
+  g.shadowBlur=glow;
+  g.textAlign='center';
+  g.textBaseline='middle';
+  g.fillText(text,c.width/2,c.height/2);
+  const tex=new THREE.CanvasTexture(c);
+
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));
+  // Rango de palabras: 85 a 135
+  const angle=(i/totalSprites)*Math.PI*2+Math.random()*0.3; 
+  const dist=85+Math.random()*50; // distancia mayor
+  const height=(Math.random()-0.5)*40;
+  spr.position.set(Math.cos(angle)*dist,height,Math.sin(angle)*dist);
+  spr.scale.set(20*(fontSize/32),4*(fontSize/32),1);
+
+  galaxy.add(spr);
+}
+
+// ==== NÚCLEO Y PARTÍCULAS ====
+const color=new THREE.Color(themeColor);
+
+// Núcleo
+const coreGeometry=new THREE.SphereGeometry(10,64,64);
+const coreMaterial=new THREE.MeshPhongMaterial({
+  color, emissive:color, emissiveIntensity:0.8, shininess:60,
+  transparent:true, opacity:0.95
+});
+const core=new THREE.Mesh(coreGeometry,coreMaterial);
+scene.add(core);
+
+// Halo más grande
+const glowGeometry=new THREE.SphereGeometry(35,64,64);
+const glowMaterial=new THREE.MeshBasicMaterial({
+  color, transparent:true, opacity:0.18, 
+  blending:THREE.AdditiveBlending, side:THREE.BackSide
+});
+const glow=new THREE.Mesh(glowGeometry,glowMaterial);
+scene.add(glow);
+
+// Partículas exteriores
+const particleCount=3500;
+const positions=new Float32Array(particleCount*3);
+const speeds=new Float32Array(particleCount);
+// Velocidad lenta
+const baseSpeed=0.0003; 
+for(let i=0;i<particleCount;i++){
+  // Rango de partículas: 70 a 180.
+  const r=70+Math.random()*110; 
+  const a=Math.random()*Math.PI*2;
+  const y=(Math.random()-0.5)*40;
+  positions[i*3]=Math.cos(a)*r;
+  positions[i*3+1]=y;
+  positions[i*3+2]=Math.sin(a)*r;
+  speeds[i]=baseSpeed;
+}
+const pGeo=new THREE.BufferGeometry();
+pGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));
+const pMat=new THREE.PointsMaterial({
+  color:themeColor,size:0.28,transparent:true,opacity:0.9,
+  blending:THREE.AdditiveBlending
+});
+const orbitParticles=new THREE.Points(pGeo,pMat);
+scene.add(orbitParticles);
+
+// Partículas núcleo
+const coreParticleCount=1500;
+const corePos=new Float32Array(coreParticleCount*3);
+const coreAngles=new Float32Array(coreParticleCount);
+const coreRadius=new Float32Array(coreParticleCount);
+for(let i=0;i<coreParticleCount;i++){
+  const r=Math.random()*10;
+  const theta=Math.random()*Math.PI*2;
+  const phi=Math.acos((Math.random()*2)-1);
+  corePos[i*3]=r*Math.sin(phi)*Math.cos(theta);
+  corePos[i*3+1]=r*Math.sin(phi)*Math.sin(theta);
+  corePos[i*3+2]=r*Math.cos(phi);
+  coreAngles[i]=Math.random()*Math.PI*2;
+  coreRadius[i]=r;
+}
+const coreGeo=new THREE.BufferGeometry();
+coreGeo.setAttribute('position',new THREE.BufferAttribute(corePos,3));
+const coreMat2=new THREE.PointsMaterial({
+  color:themeColor,size:0.38,transparent:true,opacity:0.95,
+  blending:THREE.AdditiveBlending
+});
+const innerParticles=new THREE.Points(coreGeo,coreMat2);
+scene.add(innerParticles);
+
+// Partículas intermedias
+const midParticleCount=5000;
+const midPositions=new Float32Array(midParticleCount*3);
+const midSpeeds=new Float32Array(midParticleCount);
+for(let i=0;i<midParticleCount;i++){
+  const r=15+Math.random()*55;
+  const theta=Math.random()*Math.PI*2;
+  const phi=Math.acos((Math.random()*2)-1);
+  midPositions[i*3]=r*Math.sin(phi)*Math.cos(theta);
+  midPositions[i*3+1]=r*Math.sin(phi)*Math.sin(theta);
+  midPositions[i*3+2]=r*Math.cos(phi);
+  midSpeeds[i]=baseSpeed;
+}
+const midGeo=new THREE.BufferGeometry();
+midGeo.setAttribute('position',new THREE.BufferAttribute(midPositions,3));
+const midMat=new THREE.PointsMaterial({
+  color:themeColor,size:0.25,transparent:true,opacity:0.88,
+  blending:THREE.AdditiveBlending
+});
+const midParticles=new THREE.Points(midGeo,midMat);
+scene.add(midParticles);
+
+// Luces
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+const light=new THREE.PointLight(themeColor,1.2,350); 
+light.position.set(0,20,60);
+scene.add(light);
+
+// ==== ANIMACIÓN ====
+function animate(){
+  requestAnimationFrame(animate);
+
+  // Las rotaciones usan baseSpeed
+  galaxy.rotation.y += baseSpeed*2; 
+  core.rotation.y += baseSpeed*2;
+  glow.rotation.y += baseSpeed*2;
+
+  // partículas externas
+  const pos=orbitParticles.geometry.attributes.position.array;
+  for(let i=0;i<particleCount;i++){
+    const x=pos[i*3];
+    const z=pos[i*3+2];
+    // La velocidad angular usa speeds[i] que se inicializó con baseSpeed
+    const angle=Math.atan2(z,x)-speeds[i]; 
+    const r=Math.sqrt(x*x+z*z);
+    pos[i*3]=Math.cos(angle)*r;
+    pos[i*3+2]=Math.sin(angle)*r;
+  }
+  orbitParticles.geometry.attributes.position.needsUpdate=true;
+
+  // partículas intermedias
+  const midArray=midParticles.geometry.attributes.position.array;
+  for(let i=0;i<midParticleCount;i++){
+    const x=midArray[i*3];
+    const z=midArray[i*3+2];
+    const angle=Math.atan2(z,x)-midSpeeds[i];
+    const r=Math.sqrt(x*x+z*z);
+    midArray[i*3]=Math.cos(angle)*r;
+    midArray[i*3+2]=Math.sin(angle)*r;
+  }
+  midParticles.geometry.attributes.position.needsUpdate=true;
+
+  // partículas del núcleo
+  const corePositions=innerParticles.geometry.attributes.position.array;
+  for(let i=0;i<coreParticleCount;i++){
+    // También usa baseSpeed para su movimiento
+    coreAngles[i]-=baseSpeed;
+    const r=coreRadius[i];
+    corePositions[i*3]=Math.cos(coreAngles[i])*r;
+    corePositions[i*3+2]=Math.sin(coreAngles[i])*r;
+  }
+  innerParticles.geometry.attributes.position.needsUpdate=true;
+
+  controls.update();
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
